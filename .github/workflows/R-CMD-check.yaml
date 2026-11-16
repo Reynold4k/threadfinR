@@ -1,0 +1,66 @@
+# R CMD check with the Python package threadfin installed from PyPI (reticulate pointed at it), and once without
+# Python's threadfin, where every test, example and vignette chunk that needs it is skipped.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+name: R-CMD-check
+
+permissions: read-all
+
+jobs:
+  R-CMD-check:
+    runs-on: ubuntu-latest
+    name: ubuntu-latest (R release, ${{ matrix.python && 'Python 3.12 with threadfin' || 'without threadfin' }})
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [true, false]
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+      PYTHONDONTWRITEBYTECODE: "1"
+      MPLBACKEND: Agg
+      OMP_NUM_THREADS: "2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        if: matrix.python
+        with:
+          python-version: "3.12"
+
+      - name: Install threadfin (Python) and point reticulate at it
+        if: matrix.python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "threadfin[dandelion]>=4.6"
+          python -c "import threadfin, dandelion; print('threadfin', threadfin.__version__, 'dandelion', dandelion.__version__)"
+          echo "RETICULATE_PYTHON=$(python -c 'import sys; print(sys.executable)')" >> "$GITHUB_ENV"
+
+      - name: No Python for reticulate to configure on its own
+        if: ${{ !matrix.python }}
+        run: echo "RETICULATE_USE_MANAGED_VENV=no" >> "$GITHUB_ENV"
+
+      - name: qpdf (R CMD check --as-cran checks the size of PDFs with it)
+        run: sudo apt-get update && sudo apt-get install -y qpdf
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          args: 'c("--no-manual", "--as-cran")'
+          upload-snapshots: true

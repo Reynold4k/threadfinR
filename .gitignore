@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rcheck/
+threadfin_*.tar.gz
+__pycache__/
+*.pyc
+inst/doc
+doc
+Meta

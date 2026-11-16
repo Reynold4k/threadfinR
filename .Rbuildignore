@@ -1,0 +1,13 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^README\.Rmd$
+^\.github$
+^\.gitignore$
+^cran-comments\.md$
+^dev$
+^docs$
+^_pkgdown\.yml$
+^pkgdown$
+__pycache__
+\.pyc$

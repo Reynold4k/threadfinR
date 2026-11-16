@@ -1,0 +1,49 @@
+Package: threadfin
+Type: Package
+Title: R Interface to 'Threadfin' for Clone-Level Single-Cell Analysis
+Version: 0.1.0
+Authors@R: 
+    person("Chen", "Satoshi", , "103236530+Reynold4k@users.noreply.github.com",
+           role = c("aut", "cre", "cph"))
+Description: An interface to the 'Python' package 'Threadfin'
+    <https://github.com/Reynold4k/Threadfin> for paired single-cell RNA and
+    B-cell or T-cell receptor (BCR or TCR) sequencing. Each clone is
+    described by the distribution of its cells' transcriptional states, so
+    that clones, not cells, are compared, mapped and tested: whether cells of
+    one clone share their state, a map with one point per clone, groups of
+    clones that behave alike, clone-level tests of measured labels, whether
+    clones keep their state over time, and how far a clone's output lags
+    behind its own germinal-centre cells. It takes 'h5ad' files, 'Seurat'
+    and 'SingleCellExperiment' objects with Cell Ranger or AIRR receptor
+    tables, and returns the results as data frames. Every analysis runs in
+    'Threadfin' through 'reticulate', so results equal those of the 'Python'
+    package.
+License: MIT + file LICENSE
+URL: https://github.com/Reynold4k/threadfinR,
+    https://github.com/Reynold4k/Threadfin
+BugReports: https://github.com/Reynold4k/threadfinR/issues
+Depends: 
+    R (>= 4.1.0)
+Imports: 
+    grDevices,
+    grid,
+    Matrix,
+    methods,
+    reticulate (>= 1.45.0)
+Suggests: 
+    knitr,
+    png,
+    rmarkdown,
+    S4Vectors,
+    SeuratObject,
+    SingleCellExperiment,
+    SummarizedExperiment,
+    testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Encoding: UTF-8
+Language: en-GB
+Roxygen: list(markdown = TRUE)
+SystemRequirements: Python (>= 3.10) with the 'threadfin' package (>= 4.6),
+    installed by install_threadfin()
+Config/roxygen2/version: 8.1.1

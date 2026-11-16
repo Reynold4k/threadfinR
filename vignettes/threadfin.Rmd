@@ -1,0 +1,205 @@
+---
+title: "Threadfin from R"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Threadfin from R}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+have_python <- threadfin::threadfin_available()
+knitr::opts_chunk$set(
+  collapse = TRUE, comment = "#>", eval = have_python,
+  fig.width = 9, fig.height = 6.5, dpi = 72, fig.retina = 1, out.width = "100%"
+)
+```
+
+This vignette runs Threadfin from R on a repertoire simulated by the Python package, so it needs no download and
+the right answer is known. Every number and figure comes from the Python package itself: the R functions convert
+the inputs, call Threadfin and hand back data frames.
+`r if (!have_python) "*The Python package threadfin was not available when this vignette was built, so the code below is shown without its output.*"`
+
+## Set up once
+
+```{r install, eval = FALSE}
+install.packages("remotes")
+remotes::install_github("Reynold4k/threadfinR")
+threadfin::install_threadfin()     # Python environment "r-threadfin": threadfin and Dandelion from PyPI
+```
+
+Restart R afterwards; `library(threadfin)` then finds the environment on its own.
+
+```{r library}
+library(threadfin)
+```
+
+## A repertoire with a known answer
+
+`simulate_repertoire()` makes paired data the way Threadfin sees them: cells in clones, clones in four donors,
+each donor sampled in three libraries (`context`), and every clone drawn from one of four programmes
+(`true_programme`) that set how its cells are spread over six cell states (`true_state`). The simulation already
+has clone ids and an expression embedding, so no receptor table is needed here.
+
+```{r simulate}
+adata <- simulate_repertoire(n_clones = 600, random_state = 0)
+adata
+```
+
+## One call
+
+```{r run}
+res <- run_threadfin(
+  adata,
+  donor_key = "donor",          # clones are compared within individuals
+  sample_key = "context",       # each clone is compared with the cells sampled alongside it
+  basis = "X_pca",              # an existing embedding; without it Threadfin builds one from raw counts
+  state_key = "true_state",     # describes the programmes by cell state
+  test = "true_programme",      # a label to test against the clones
+  verbose = FALSE
+)
+res
+```
+
+`summary(res)` prints Threadfin's plain-language report:
+
+```{r summary}
+summary(res)
+```
+
+Every part of it is a data frame. Are cells of one clone more alike than cells of different clones? Clone identity
+explains `icc` of the variance of cell states, against `null_mean` when clone labels are shuffled within each
+library:
+
+```{r coherence}
+res$coherence[, c("icc", "null_mean", "excess", "p_value", "strata_key")]
+```
+
+One row per clone with two or more cells, with its reliability, its place on the clone map and its programme:
+
+```{r clones}
+head(res$clones[, c("clone_id", "n_cells", "reliability", "x", "y", "clone_programme", "confidence")])
+res$programmes
+```
+
+How much of the difference between clones does a label explain, against the same label shuffled among clones of
+the same donor and size?
+
+```{r tests}
+res$profile_tests[, c("label", "r2", "null_mean", "excess_r2", "p_value", "n_clones")]
+```
+
+Because the data are simulated, the programmes Threadfin found can be checked against the simulated ones:
+
+```{r check}
+simulated <- clone_labels(adata, "true_programme")      # one value per clone
+table(simulated = simulated[res$clones$clone_id], found = res$clones$clone_programme)
+```
+
+`res$cells` has the clone and programme of every cell, to add to a Seurat object or a SingleCellExperiment, and
+`res$methods` is a Methods paragraph with the settings and package versions used.
+
+## Figures
+
+The overview: the clone map with one panel per programme, the coherence test, programme stability and the
+composition of each programme in cell states.
+
+```{r overview}
+plot_overview(res)
+```
+
+`plot_overview(res, file = "threadfin_overview.pdf")` writes Threadfin's own PDF. The clone map can be coloured by
+any column of the clone table:
+
+```{r map, fig.width = 6, fig.height = 5}
+plot_clone_map(res, color = "n_cells")
+```
+
+`plot_threadfin()` draws every other figure of `threadfin.pl` (`"coherence"`, `"stability"`, `"association"`,
+`"memory"`, `"label_effects"`, `"heritability"`, ...).
+
+## Your own data
+
+```{r own-data, eval = FALSE}
+# files: raw counts with the donor and sample of each cell, and Cell Ranger's contigs
+res <- run_threadfin("b_cells.h5ad", bcr = "filtered_contig_annotations.csv",
+                     donor_key = "donor", sample_key = "sample", n_jobs = 8)
+
+# a Seurat object (raw counts in the "counts" layer) with the contigs as a data frame
+contigs <- read.csv("filtered_contig_annotations.csv")
+res <- run_threadfin(seurat_obj, bcr = contigs, donor_key = "donor", sample_key = "sample",
+                     test = c("isotype", "antigen_binding"))
+
+# a SingleCellExperiment, several tissues per donor: describe clones relative to the donor and shuffle
+# clone labels within libraries
+res <- run_threadfin(sce, bcr = "airr_rearrangement.tsv", donor_key = "donor", sample_key = "donor",
+                     strata_key = "library", test = "tissue")
+
+# T cells: the TCR contigs as bcr; clones called elsewhere: a clone_id column and no bcr
+res <- run_threadfin(seurat_obj, donor_key = "donor", sample_key = "sample")
+
+# back to the Seurat object
+seurat_obj$clone_programme <- res$cells$clone_programme[match(colnames(seurat_obj), res$cells$cell)]
+```
+
+Clones are called with Dandelion's paired heavy- and light-chain definition within each donor, under Python's
+string-hash seed 0, so the clone ids are the same in every session (see `?define_clones_dandelion`). The cell names
+of the contig table must match those of the expression data; with several libraries, give both the same prefixes
+(Threadfin's Tutorial 2, section 4).
+
+## Step by step
+
+The analysis steps of Threadfin's Tutorial 4 are R functions too. They work on an AnnData and write their results
+into it, as in Python, so later steps find them; `as_anndata()` makes one from a file, a Seurat object or a
+SingleCellExperiment. Here a simulated time course: four donors, each sampled at two time points, in which clones
+keep their programme with probability 0.8.
+
+```{r steps}
+tc <- simulate_repertoire(n_clones = 400, n_timepoints = 2, memory = 0.8, random_state = 0)
+profiles <- clone_profiles(tc, basis = "X_pca", context_key = "context", donor_key = "donor",
+                           representation = "kernel", verbose = FALSE)
+nrow(profiles)
+coh <- clonal_coherence(tc, strata_key = "context", verbose = FALSE)
+as.data.frame(coh)[, c("icc", "null_mean", "p_value")]
+map <- embed_clones(tc, verbose = FALSE)
+programmes <- find_programmes(tc, verbose = FALSE)
+programmes[, c("programme", "n_clones", "stability")]
+```
+
+Do clones keep their state between the time points?
+
+```{r memory}
+mem <- clonal_memory(tc, "timepoint", verbose = FALSE)
+c(index = mem$memory_index, lower = mem$memory_index_ci[1], upper = mem$memory_index_ci[2], p = mem$p_value)
+```
+
+```{r memory-figure, fig.width = 3.5, fig.height = 3.5, out.width = "40%"}
+plot_memory(mem)
+```
+
+Further steps: `profile_association()` and `association_test()` test labels, `export_lag()` measures how much less
+mutated a clone's ASCs (antibody-secreting cells) are than its own germinal-centre cells,
+`gene_heritability()`, `programme_markers()` and `landscape_genes()` name the genes behind the clone landscape.
+
+## Saving
+
+```{r save}
+files <- save_threadfin(res, tempdir())
+basename(files)
+again <- read_threadfin(files[["h5ad"]])
+identical(again$summary, res$summary)
+```
+
+## Everything else
+
+`tf` is the Python package itself, with the names of the
+[Python function reference](https://github.com/Reynold4k/Threadfin/blob/main/docs/API.md):
+
+```{r tf}
+tf$`__version__`
+head(names(tf$tl), 12)
+```
+
+For example `tf$tl$tune_clone_map()` or `tf$tl$lineage_heritability()`; results of this package pass to them
+as their Python objects (`py_object(res)$adata`). Threadfin's
+[tutorials](https://github.com/Reynold4k/Threadfin/tree/main/docs/tutorials) explain each analysis in depth.
