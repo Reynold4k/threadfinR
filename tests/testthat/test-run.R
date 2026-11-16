@@ -109,9 +109,15 @@ test_that("a result saves to files and reads back", {
   again <- quiet(read_threadfin(files[["h5ad"]]))
   expect_identical(again$summary, res$summary)
   expect_identical(again$methods, res$methods)
-  # the same values; an h5ad file keeps dicts in the order of their keys and text columns as categories
+  # the same values; an h5ad file keeps dicts in the order of their keys, and a text column can come back as a
+  # factor or as text (Threadfin 4.6.2 and later rebuild the tables from the copy the run stored), so text columns
+  # are compared as text
+  as_text <- function(d) {
+    if (is.data.frame(d)) d[] <- lapply(d, function(x) if (is.factor(x)) as.character(x) else x)
+    d
+  }
   for (k in c("coherence", "profile_tests")) expect_equal(again[[k]][names(res[[k]])], res[[k]], label = k)
-  for (k in c("clones", "programmes", "composition")) expect_equal(again[[k]], res[[k]], label = k)
+  for (k in c("clones", "programmes", "composition")) expect_equal(as_text(again[[k]]), as_text(res[[k]]), label = k)
   expect_identical(as.character(again$cells$clone_id), res$cells$clone_id)
   expect_identical(as.character(again$cells$clone_programme), as.character(res$cells$clone_programme))
   only <- save_threadfin(res, dir, prefix = "x", what = "methods")
