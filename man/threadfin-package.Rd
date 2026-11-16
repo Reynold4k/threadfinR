@@ -33,11 +33,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Chen Satoshi \email{103236530+Reynold4k@users.noreply.github.com} [copyright holder]
+\strong{Maintainer}: Chen Zhu \email{103236530+Reynold4k@users.noreply.github.com} [copyright holder]
 
 Authors:
 \itemize{
-  \item Chen Satoshi \email{103236530+Reynold4k@users.noreply.github.com} [copyright holder]
+  \item Chen Zhu \email{103236530+Reynold4k@users.noreply.github.com} [copyright holder]
 }
 
 }

@@ -3,7 +3,7 @@ Type: Package
 Title: R Interface to 'Threadfin' for Clone-Level Single-Cell Analysis
 Version: 0.1.0
 Authors@R: 
-    person("Chen", "Satoshi", , "103236530+Reynold4k@users.noreply.github.com",
+    person("Chen", "Zhu", , "103236530+Reynold4k@users.noreply.github.com",
            role = c("aut", "cre", "cph"))
 Description: An interface to the 'Python' package 'Threadfin'
     <https://github.com/Reynold4k/Threadfin> for paired single-cell RNA and
